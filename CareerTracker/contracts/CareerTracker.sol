@@ -24,8 +24,10 @@ contract CareerTracker {
         address organization;
         string position;
         uint timestamp;
-        bool approved;
+        OfferStatus status;
     }
+
+    enum OfferStatus { No, Approved, Declined }
 
     // This is a type for a single employment record.
     struct EmpRecord {
@@ -87,7 +89,7 @@ contract CareerTracker {
             organization: msg.sender,
             position: _position,
             timestamp: now,
-            approved: false
+            status: OfferStatus.No
         }));
     }
 
@@ -95,7 +97,7 @@ contract CareerTracker {
     function considerOffer(uint offerIdx, bool approve) {
         Offer storage _offer = offersOf[msg.sender][offerIdx];
         if (approve) {
-            _offer.approved = true;
+            _offer.status = OfferStatus.Approved;
             empHistoryOf[msg.sender].push(EmpRecord({
                 organization: _offer.organization,
                 position: _offer.position,
@@ -104,11 +106,15 @@ contract CareerTracker {
             }));
             employeesOf[_offer.organization].push(msg.sender);
         } else {
-            _offer.approved = false;
+            _offer.status = OfferStatus.Declined;
         }
     }
 
-    // returns address(0) if person is unemployed
+    function getLastOfferIndex() constant returns (uint) {
+        return offersOf[msg.sender].length - 1;
+    }
+
+    // returns 0x0 if person is unemployed
     function getCurrentEmployer() constant returns (address) {
         uint last = empHistoryOf[msg.sender].length - 1;
         EmpRecord memory lastRecord = empHistoryOf[msg.sender][last];
@@ -118,6 +124,10 @@ contract CareerTracker {
         } else {
             return lastRecord.organization;
         }
+    }
+
+    function getEmployees() constant returns (address[]) {
+        return employeesOf[msg.sender];
     }
 
     // TODO
