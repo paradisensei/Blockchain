@@ -9,26 +9,35 @@ contract CareerTracker {
         string email;
         string position;
         string city;
+        uint32 passport;
     }
 
     // This is a type for a single organization.
     struct Org {
         string name;
+        string city;
         string sphere;
     }
 
     // This is a type for a single offer.
     struct Offer {
         address organization;
-        bool approved;
+        string position;
+        uint timestamp;
+        OfferStatus status;
     }
+
+    enum OfferStatus { No, Approved, Declined }
 
     // This is a type for a single employment record.
     struct EmpRecord {
         address organization;
-        uint dateCreated;
+        string position;
+        uint timestamp;
         EmploymentStatus status;
     }
+
+    enum EmploymentStatus { In, Out, Fired }
 
     mapping (address => Employee) public employees;
     mapping (address => Org) public orgs;
@@ -42,61 +51,70 @@ contract CareerTracker {
     // organization address -> list of employees
     mapping (address => address[]) public employeesOf;
 
-    enum EmploymentStatus { In, Out, Fired }
-
     /// Add new employee
     function newEmployee(
         string _name,
         string _email,
         string _position,
-        string _city
+        string _city,
+        uint32 _passport
     ) {
         require(sha3(_email) != sha3(employees[msg.sender].email));
         employees[msg.sender] = Employee({
             name: _name,
             email : _email,
             position: _position,
-            city: _city
+            city: _city,
+            passport: _passport
         });
     }
 
     /// Add new organization
-    function newOrg(string _name, string _sphere) {
+    function newOrg(string _name, string _city, string _sphere) {
         require(sha3(_name) != sha3(orgs[msg.sender].name));
         orgs[msg.sender] = Org({
             name: _name,
+            city: _city,
             sphere: _sphere
         });
     }
 
     /// Make an offer to particular employee
-    function offer(address employee) {
+    function offer(address employee, string _position) {
         address[] memory empls = employeesOf[msg.sender];
         for (uint i = 0; i < empls.length; i++) {
             require(empls[i] != employee);
         }
         offersOf[employee].push(Offer({
             organization: msg.sender,
-            approved: false
+            position: _position,
+            timestamp: now,
+            status: OfferStatus.No
         }));
     }
 
     /// Make a decision on offer 
     function considerOffer(uint offerIdx, bool approve) {
+        Offer storage _offer = offersOf[msg.sender][offerIdx];
         if (approve) {
-            address org = offersOf[msg.sender][offerIdx].organization;
+            _offer.status = OfferStatus.Approved;
             empHistoryOf[msg.sender].push(EmpRecord({
-                organization: org,
-                dateCreated: now,
+                organization: _offer.organization,
+                position: _offer.position,
+                timestamp: now,
                 status: EmploymentStatus.In
             }));
-            employeesOf[org].push(msg.sender);
+            employeesOf[_offer.organization].push(msg.sender);
         } else {
-            delete offersOf[msg.sender][offerIdx];
+            _offer.status = OfferStatus.Declined;
         }
     }
 
-    // returns -1 if person is unemployed
+    function getLastOfferIndex() constant returns (uint) {
+        return offersOf[msg.sender].length - 1;
+    }
+
+    // returns 0x0 if person is unemployed
     function getCurrentEmployer() constant returns (address) {
         uint last = empHistoryOf[msg.sender].length - 1;
         EmpRecord memory lastRecord = empHistoryOf[msg.sender][last];
@@ -106,6 +124,10 @@ contract CareerTracker {
         } else {
             return lastRecord.organization;
         }
+    }
+
+    function getEmployees() constant returns (address[]) {
+        return employeesOf[msg.sender];
     }
 
     // TODO
