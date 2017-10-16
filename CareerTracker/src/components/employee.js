@@ -7,7 +7,9 @@ class Employee extends Component {
   constructor(props) {
     super(props)
 
-    this.state = {}
+    this.state = {
+      offers: []
+    }
   }
 
   componentWillMount() {
@@ -16,23 +18,22 @@ class Employee extends Component {
     const contract = state.contract
     const user = state.user
 
-    // get last offer
-    // TODO get all offers with 'No' status
-    contract.getLastOfferIndex.call({from: user.address}, (e, result) => {
-      let index = result.toNumber();
-      if (!e && index >= 0) {
-        contract.offersOf.call(user.address, index, (e, result) => {
-          const offer = result;
-          if (offer[0] && !offer[3].toNumber()) {
-            contract.orgs.call(offer[0], (e, result) => {
+    // get all offers with 'No' status
+    contract.methods.getOffersLength().call({from: user.address}).then(length => {
+      for (var i = 0; i < Number(length); i++) {
+        contract.methods.offersOf(user.address, i).call({from: user.address}, (e, offer) => {
+          if (offer[0] && Number(offer[3]) === 0) {
+            contract.methods.orgs(offer[0]).call((e, org) => {
+              const arr = this.state.offers.slice();
+              arr.push({
+                orgName: org[0],
+                position: offer[1],
+                date: getDate(new Date(Number(offer[2]))),
+                index: i
+              });
               this.setState({
-                offer: {
-                  orgName: result[0],
-                  position: offer[1],
-                  date: getDate(new Date(offer[2].toNumber())),
-                  index: index
-                }
-              })
+                offers: arr
+              });
             });
           }
         });
@@ -40,10 +41,11 @@ class Employee extends Component {
     })
     
     // check current employer
-    contract.getCurrentEmployer.call({from: user.address}, (e, result) => {
-      if (!e && result != 0) {
-        contract.orgs.call(result, (e, result) => {
-          if (!e && result[0]) {
+    contract.methods.getCurrentEmployer().call({from: user.address})
+      .then(result => {
+        console.log(result);
+        if (result !== 0) {
+          contract.methods.orgs(result).call((e, result) => {
             this.setState({
               employer: {
                 name: result[0],
@@ -51,25 +53,32 @@ class Employee extends Component {
                 sphere: result[2]
               }
             });
-          }
-        });
-      }
-    });
+          });
+        }
+    })
+    .catch(e => console.log(e));
   }
 
   render() {
-    let offer = null;
+    let offers = null;
     let employer = null;
 
-    if (this.state.offer) {
-      offer = <div>
+    if (this.state.offers && this.state.offers.length !== 0) {
+      offers = <div>
         <h3>Ваши офферы</h3>
-        <p>
-          {this.state.offer.date} {this.state.offer.orgName} пригласил/а 
-          вас на должность {this.state.offer.position}
-        </p>
-        <button onClick={considerOffer.bind(this, true)}>Принять</button>
-        <button onClick={considerOffer.bind(this, false)}>Отказаться</button>
+        <ul> 
+          {
+            this.state.offers.map((o) =>
+              <li>
+                <p>
+                {o.date} {o.orgName} пригласил/а вас на должность {o.position}
+                </p>
+                <button onClick={considerOffer.bind(this, o.index, true)}>Принять</button>
+                <button onClick={considerOffer.bind(this, o.index, false)}>Отказаться</button>
+              </li>
+            )
+          }
+        </ul>
       </div>
     }
 
@@ -84,7 +93,7 @@ class Employee extends Component {
 
     const user = store.getState().user
     return (
-      <div className="pure-u-1-1">
+      <div>
         <h2>Ваш профиль</h2>
         <p><i>ФИО:</i> {user.name}</p>
         <p><i>Email:</i> {user.email}</p>
@@ -92,17 +101,17 @@ class Employee extends Component {
         <p><i>Город:</i> {user.city}</p>
         <p><i>Паспортные данные:</i> {user.passport}</p>
         {employer}
-        {offer}
+        {offers}
       </div>
     );
   }
 }
 
-function considerOffer(approve) {
+function considerOffer(index, approve) {
   const state = store.getState();
-  const index = this.state.offer.index;
-  state.contract.considerOffer(
-    index, approve, {from: state.user.address}, (e, result) => {});
+  console.log(index, approve);
+  state.contract.methods.considerOffer(index, approve)
+    .send({from: state.user.address}, (e, result) => {});
 }
 
 export default Employee

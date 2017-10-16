@@ -58,8 +58,10 @@ contract CareerTracker {
         string _position,
         string _city,
         uint32 _passport
-    ) {
-        require(sha3(_email) != sha3(employees[msg.sender].email));
+    ) 
+        public 
+    {
+        require(keccak256(_email) != keccak256(employees[msg.sender].email));
         employees[msg.sender] = Employee({
             name: _name,
             email : _email,
@@ -70,17 +72,48 @@ contract CareerTracker {
     }
 
     /// Add new organization
-    function newOrg(string _name, string _city, string _sphere) {
-        require(sha3(_name) != sha3(orgs[msg.sender].name));
+    function newOrg(string _name, string _city, string _sphere) public {
+        require(keccak256(_name) != keccak256(orgs[msg.sender].name));
         orgs[msg.sender] = Org({
             name: _name,
             city: _city,
             sphere: _sphere
         });
     }
+    
+    /// Get all offers with 'No' status 
+    function getNewOffers() 
+        public
+        constant 
+        returns (address[], bytes32[], uint[])
+    {
+        uint len = offersOf[msg.sender].length;
+        address[] memory orgs = new address[](len);
+        bytes32[] memory positions = new bytes32[](len);
+        uint[] memory timestamps = new uint[](len);
+        
+        for (uint i = 0; i < len; i++) {
+            Offer memory offer = offersOf[msg.sender][i];
+            if (offer.status == OfferStatus.No) {
+                string memory position = offer.position;
+                bytes32 pos;
+                assembly {
+                    pos := mload(add(position, 32))
+                }
+                orgs[i] = offer.organization;
+                positions[i] = pos;
+                timestamps[i] = offer.timestamp;
+            }
+        }
+        return (orgs, positions, timestamps);
+    }
+    
+    function getOffersLength() public constant returns(uint) {
+        return offersOf[msg.sender].length;
+    }
 
     /// Make an offer to particular employee
-    function offer(address employee, string _position) {
+    function offer(address employee, string _position) public {
         address[] memory empls = employeesOf[msg.sender];
         for (uint i = 0; i < empls.length; i++) {
             require(empls[i] != employee);
@@ -94,7 +127,7 @@ contract CareerTracker {
     }
 
     /// Make a decision on offer 
-    function considerOffer(uint offerIdx, bool approve) {
+    function considerOffer(uint offerIdx, bool approve) public {
         Offer storage _offer = offersOf[msg.sender][offerIdx];
         if (approve) {
             _offer.status = OfferStatus.Approved;
@@ -110,12 +143,9 @@ contract CareerTracker {
         }
     }
 
-    function getLastOfferIndex() constant returns (uint) {
-        return offersOf[msg.sender].length - 1;
-    }
-
     // returns 0x0 if person is unemployed
-    function getCurrentEmployer() constant returns (address) {
+    function getCurrentEmployer() public constant returns (address) {
+        require(empHistoryOf[msg.sender].length > 0);
         uint last = empHistoryOf[msg.sender].length - 1;
         EmpRecord memory lastRecord = empHistoryOf[msg.sender][last];
 
@@ -126,7 +156,7 @@ contract CareerTracker {
         }
     }
 
-    function getEmployees() constant returns (address[]) {
+    function getEmployees() public constant returns (address[]) {
         return employeesOf[msg.sender];
     }
 
