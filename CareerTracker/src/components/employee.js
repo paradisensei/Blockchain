@@ -8,7 +8,8 @@ class Employee extends Component {
     super(props)
 
     this.state = {
-      offers: []
+      offers: [],
+      empRecords: []
     }
   }
 
@@ -19,9 +20,9 @@ class Employee extends Component {
     const user = state.user
 
     // get all offers with 'No' status
-    contract.methods.getOffersLength().call({from: user.address}).then(length => {
-      for (var i = 0; i < Number(length); i++) {
-        contract.methods.offersOf(user.address, i).call({from: user.address}, (e, offer) => {
+    contract.methods.getOffersCount().call({from: user.address}).then(count => {
+      for (var i = 0; i < Number(count); i++) {
+        contract.methods.offersOf(user.address, i).call((e, offer) => {
           if (offer[0] && Number(offer[3]) === 0) {
             contract.methods.orgs(offer[0]).call((e, org) => {
               const arr = this.state.offers.slice();
@@ -39,34 +40,37 @@ class Employee extends Component {
         });
       }
     })
-    
-    // check current employer
-    contract.methods.getCurrentEmployer().call({from: user.address})
-      .then(result => {
-        console.log(result);
-        if (result !== 0) {
-          contract.methods.orgs(result).call((e, result) => {
-            this.setState({
-              employer: {
-                name: result[0],
-                city: result[1],
-                sphere: result[2]
-              }
+
+    // get employment records
+    contract.methods.getEmpRecordsCount().call({from: user.address}).then(count => {
+      for (var i = 0; i < Number(count); i++) {
+        contract.methods.empRecordsOf(user.address, i).call((e, record) => {
+          if (record[0]) {
+            contract.methods.orgs(record[0]).call((e, org) => {
+              const arr = this.state.empRecords.slice();
+              arr.push({
+                orgName: org[0],
+                position: record[1],
+                date: getDate(new Date(Number(record[2]))),
+                status: record[3]
+              });
+              this.setState({
+                empRecords: arr
+              });
             });
-          });
-        }
+          }
+        });
+      }
     })
-    .catch(e => console.log(e));
   }
 
   render() {
-    let offers = null;
-    let employer = null;
+    let offers, empRecords;
 
-    if (this.state.offers && this.state.offers.length !== 0) {
+    if (this.state.offers && this.state.offers.length > 0) {
       offers = <div>
         <h3>Ваши офферы</h3>
-        <ul> 
+        <ul>
           {
             this.state.offers.map((o) =>
               <li>
@@ -82,12 +86,20 @@ class Employee extends Component {
       </div>
     }
 
-    if (this.state.employer) {
-      employer = <div>
-        <h3>Ваш текущий работодатель</h3>
-        <p><i>Название:</i> {this.state.employer.name}</p>
-        <p><i>Город:</i> {this.state.employer.city}</p>
-        <p><i>Сфера деятельности:</i> {this.state.employer.sphere}</p>
+    if (this.state.empRecords && this.state.empRecords.length > 0) {
+      empRecords = <div>
+        <h3>Ваш послужной список</h3>
+        <ul> {
+          this.state.empRecords.map((r) => {
+            const text = r.status == 0 ? 'приняты на должность'
+              : 'уволены с должности';
+            return (
+              <li>
+                <p>{r.date} вы были {text} {r.position} в {r.orgName}</p>
+              </li>
+            );
+          })
+        } </ul>
       </div>
     }
 
@@ -97,11 +109,11 @@ class Employee extends Component {
         <h2>Ваш профиль</h2>
         <p><i>ФИО:</i> {user.name}</p>
         <p><i>Email:</i> {user.email}</p>
-        <p><i>Желаемая должность:</i> {user.position}</p>
+        <p><i>Профессия:</i> {user.profession}</p>
         <p><i>Город:</i> {user.city}</p>
         <p><i>Паспортные данные:</i> {user.passport}</p>
-        {employer}
         {offers}
+        {empRecords}
       </div>
     );
   }
@@ -109,7 +121,6 @@ class Employee extends Component {
 
 function considerOffer(index, approve) {
   const state = store.getState();
-  console.log(index, approve);
   state.contract.methods.considerOffer(index, approve)
     .send({from: state.user.address}, (e, result) => {});
 }

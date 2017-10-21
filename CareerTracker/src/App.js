@@ -1,35 +1,35 @@
-import React, { Component } from 'react'
+import React, { Component } from 'react';
 import Web3 from 'web3';
 
-import Employee from './components/employee'
-import Org from './components/org'
-import store from './store'
-
-import { Button } from 'react-bootstrap';
+import Employee from './components/employee';
+import Org from './components/org';
+import Auth from './components/auth';
+import store from './store';
 
 class App extends Component {
 
   constructor(props) {
-    super(props)
+    super(props);
+
+    this.web3 = new Web3(Web3.givenProvider || "http://localhost:8545");
 
     this.state = {
       // 1 - employee, 2 - org, 3 - none
-      flag: 0,
-      web3:  new Web3(Web3.givenProvider || "http://localhost:8545")
+      flag: 0
     }
   }
 
   componentWillMount() {
     // Instantiate contract once web3 is provided.
-    this.instantiateContract()
+    this.instantiateContract();
 
     // Find current user
-    this.findUser()
+    this.findUser();
   }
 
   instantiateContract() {
     const contractInfo = require('../build/contracts/CareerTrackerInfo.json');
-    const careerTracker = new this.state.web3.eth
+    const careerTracker = new this.web3.eth
             .Contract(contractInfo.abi, contractInfo.address);
     this.setState({
       contract: careerTracker
@@ -43,7 +43,7 @@ class App extends Component {
 
   findUser() {
     let etherbase;
-    this.state.web3.eth.getAccounts()
+    this.web3.eth.getAccounts()
       .then(accounts => {
         etherbase = accounts[0];
         return this.state.contract.methods.employees(etherbase).call();
@@ -54,9 +54,9 @@ class App extends Component {
             address: etherbase,
             name: employee[0],
             email: employee[1],
-            position: employee[2],
-            city: employee[3],
-            passport: Number(employee[4])
+            city: employee[2],
+            passport: Number(employee[3]),
+            profession: employee[4]
           }})
           this.setState({
             flag: 1
@@ -69,7 +69,8 @@ class App extends Component {
                 address: etherbase,
                 name: org[0],
                 city: org[1],
-                sphere: org[2]
+                inn: org[2],
+                sphere: org[3]
               }})
             } else {
               flag = 3
@@ -92,7 +93,7 @@ class App extends Component {
         body = <Org/>;
         break;
       case 3:
-        body = <p>Нет уч. записи!</p>;
+        body = <Auth web3={this.web3}/>;
         break;
       default:
         // will NOT execute
