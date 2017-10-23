@@ -1,6 +1,7 @@
-import React, { Component } from 'react'
-import getDate from '../utils/getDate'
-import store from '../store'
+import React, { Component } from 'react';
+import { Button } from 'react-bootstrap';
+import getDate from '../utils/getDate';
+import store from '../store';
 
 class Employee extends Component {
 
@@ -22,15 +23,16 @@ class Employee extends Component {
     // get all offers with 'No' status
     contract.methods.getOffersCount().call({from: user.address}).then(count => {
       for (var i = 0; i < Number(count); i++) {
+        const index = i;
         contract.methods.offersOf(user.address, i).call((e, offer) => {
           if (offer[0] && Number(offer[3]) === 0) {
-            contract.methods.orgs(offer[0]).call((e, org) => {
+            contract.methods.orgInfo(offer[0]).call((e, org) => {
               const arr = this.state.offers.slice();
               arr.push({
                 orgName: org[0],
                 position: offer[1],
                 date: getDate(new Date(Number(offer[2]))),
-                index: i
+                index: index
               });
               this.setState({
                 offers: arr
@@ -46,7 +48,7 @@ class Employee extends Component {
       for (var i = 0; i < Number(count); i++) {
         contract.methods.empRecordsOf(user.address, i).call((e, record) => {
           if (record[0]) {
-            contract.methods.orgs(record[0]).call((e, org) => {
+            contract.methods.orgInfo(record[0]).call((e, org) => {
               const arr = this.state.empRecords.slice();
               arr.push({
                 orgName: org[0],
@@ -73,12 +75,16 @@ class Employee extends Component {
         <ul>
           {
             this.state.offers.map((o) =>
-              <li>
+              <li key={o.date}>
                 <p>
                 {o.date} {o.orgName} пригласил/а вас на должность {o.position}
                 </p>
-                <button onClick={considerOffer.bind(this, o.index, true)}>Принять</button>
-                <button onClick={considerOffer.bind(this, o.index, false)}>Отказаться</button>
+                <Button onClick={considerOffer.bind(this, o.index, true)}>
+                  Принять
+                </Button>
+                <Button onClick={considerOffer.bind(this, o.index, false)}>
+                  Отказаться
+                </Button>
               </li>
             )
           }
@@ -94,7 +100,7 @@ class Employee extends Component {
             const text = r.status == 0 ? 'приняты на должность'
               : 'уволены с должности';
             return (
-              <li>
+              <li key={r.date}>
                 <p>{r.date} вы были {text} {r.position} в {r.orgName}</p>
               </li>
             );

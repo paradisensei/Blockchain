@@ -40,8 +40,15 @@ contract CareerTracker {
 
     enum EmploymentStatus { In, Out, Fired }
 
-    mapping (address => Employee) public employees;
-    mapping (address => Org) public orgs;
+    // employee's address -> employee's information
+    mapping (address => Employee) public employeeInfo;
+    // A dynamically-sized array containing employees' addresses
+    address[] public employees;
+
+    // organization's address -> organization's information
+    mapping (address => Org) public orgInfo;
+    // A dynamically-sized array containing organizations' addresses
+    address[] public orgs;
 
     // employee address -> employee's offers
     mapping (address => Offer[]) public offersOf;
@@ -63,14 +70,16 @@ contract CareerTracker {
     )
         public
     {
-        require(employees[msg.sender].passport == 0);
-        employees[msg.sender] = Employee({
+        require(employeeInfo[msg.sender].passport == 0);
+
+        employeeInfo[msg.sender] = Employee({
             name: _name,
             email: _email,
             city: _city,
             passport: _passport,
             profession: _profession
         });
+        employees.push(msg.sender);
     }
 
     //TODO verify organization's identity
@@ -83,13 +92,15 @@ contract CareerTracker {
     )
         public
     {
-        require(orgs[msg.sender].inn == 0);
-        orgs[msg.sender] = Org({
+        require(orgInfo[msg.sender].inn == 0);
+
+        orgInfo[msg.sender] = Org({
             name: _name,
             city: _city,
             inn: _inn,
             sphere: _sphere
         });
+        orgs.push(msg.sender);
     }
 
     /// Make an offer to particular employee
@@ -114,7 +125,9 @@ contract CareerTracker {
 
             // can accept offer only if unemployed
             uint len = records.length;
-            require(len == 0 || records[len - 1].status != EmploymentStatus.In);
+            if (len > 0) {
+              require(records[len - 1].status != EmploymentStatus.In);
+            }
 
             offer.status = OfferStatus.Approved;
             empRecordsOf[msg.sender].push(EmpRecord({
@@ -142,8 +155,18 @@ contract CareerTracker {
     }
 
     /// Get organization's employees' addresses
-    function getEmployees() public constant returns (address[]) {
+    function getStaff() public constant returns (address[]) {
         return employeesOf[msg.sender];
+    }
+
+    /// Get other employees' addresses
+    function getEmployees() public constant returns (address[]) {
+        return employees;
+    }
+
+    /// Get organizations' addresses
+    function getOrgs() public constant returns (address[]) {
+        return orgs;
     }
 
     /// Get offers count

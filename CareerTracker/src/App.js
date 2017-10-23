@@ -46,7 +46,7 @@ class App extends Component {
     this.web3.eth.getAccounts()
       .then(accounts => {
         etherbase = accounts[0];
-        return this.state.contract.methods.employees(etherbase).call();
+        return this.state.contract.methods.employeeInfo(etherbase).call();
       })
       .then(employee => {
         if (employee[1]) {
@@ -62,7 +62,7 @@ class App extends Component {
             flag: 1
           })
         } else {
-          this.state.contract.methods.orgs(etherbase).call((e, org) => {
+          this.state.contract.methods.orgInfo(etherbase).call((e, org) => {
             let flag = 2
             if (!e && org[0]) {
               store.dispatch({type: 'USER', payload: {
